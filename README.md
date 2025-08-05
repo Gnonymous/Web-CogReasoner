@@ -4,7 +4,7 @@
 <img src="assets/title.jpg" alt="Web-CogReasoner Overview" width="100%"/>
 
 <p align="center">
-    &nbsp;&nbsp; 📑 <a href="https://github/Gnonymous/Web-CogReasoner">arXiv</a> &nbsp;&nbsp;
+    &nbsp;&nbsp; 📑 <a href="https://arxiv.org/abs/2508.01858">arXiv</a> &nbsp;&nbsp;
     | &nbsp;&nbsp; 🤗 <a href="https://github.com/Gnonymous/Web-CogReasoner">Models(Coming soon)</a> &nbsp;&nbsp;
     | &nbsp;&nbsp; 🤗 <a href="https://github.com/Gnonymous/Web-CogReasoner">Dataset(Coming soon)</a> &nbsp;&nbsp;
     | &nbsp;&nbsp; 🤗 <a href="https://github.com/Gnonymous/Web-CogReasoner">Bench(Coming soon)</a> &nbsp;&nbsp;
@@ -14,7 +14,7 @@
     | &nbsp;&nbsp; 💬 <a href="https://Gnonymous.github.io/Web-CogReasoner">Blog</a> &nbsp;&nbsp;
 </p>
 
-[![📝 Paper (arXiv)](https://img.shields.io/badge/Paper-arXiv-b31b1b?logo=arxiv&logoColor=white)](https://arxiv.org)
+[![📝 Paper (arXiv)](https://img.shields.io/badge/Paper-arXiv-b31b1b?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2508.01858)
 [![🤗 Model on Hugging Face](https://img.shields.io/badge/🤗%20%20Space-HuggingFace-yellow)](https://huggingface.co/)
 [![🐛 Open Issues](https://img.shields.io/github/issues-raw/Gnonymous/Web-CogReasoner?color=orange)](https://github.com/Gnonymous/Web-CogReasoner/issues)
 [![⭐ GitHub Stars](https://img.shields.io/github/stars/Gnonymous/Web-CogReasoner)](https://github.com/Gnonymous/Web-CogReasoner)
@@ -39,9 +39,9 @@
 ![Web-CogReasoner Overview](assets/exp_results.jpg)
 
 ## To-Do List  
-> **Last Updated**: 2025-08-05 03:02 UTC+8
+> **Last Updated**: 2025-08-05 13:08 UTC+8
 
-- [ ] **Paper**: Release the full research paper on arXiv.  
+- [x] ~~**Paper**: Release the full research paper on [arXiv](https://arxiv.org/abs/2508.01858).~~
 - [ ] **Code**: Open-source the complete code for training and inference. 
 - [ ] **Model**: Publish the official Web-CogReasoner model weights.  
 - [ ] **Dataset**: Make the Web-CogDataset publicly available for community research.  
@@ -50,7 +50,7 @@
 ## News
 
 ```
-[2025-07-30] 
+[2025-08-05] Release the full research paper on arXiv.
 ```
 
 
@@ -92,11 +92,14 @@ This section evaluates the models' ability to perform complex, multi-step tasks 
 ## Citation
 
 ```bibtex
-@article{author2025webcograesoner,
-  title={Web-CogReasoner: Towards Knowledge-Induced Cognitive Reasoning for Web Agents},
-  author={Author, A. and Author, B.},
-  journal={Conference/Journal Name},
-  year={2025}
+@misc{guo2025webcogreasonerknowledgeinducedcognitivereasoning,
+      title={Web-CogReasoner: Towards Knowledge-Induced Cognitive Reasoning for Web Agents}, 
+      author={Yuhan Guo and Cong Guo and Aiwen Sun and Hongliang He and Xinyu Yang and Yue Lu and Yingji Zhang and Xuntao Guo and Dong Zhang and Jianzhuang Liu and Jiang Duan and Yijia Xiao and Liangjian Wen and Hai-Ming Xu and Yong Dai},
+      year={2025},
+      eprint={2508.01858},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2508.01858}, 
 }
 ```
 
