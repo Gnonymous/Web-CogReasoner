@@ -5,8 +5,8 @@
 
 <p align="center">
     &nbsp;&nbsp; 📑 <a href="https://arxiv.org/abs/2508.01858">arXiv</a> &nbsp;&nbsp;
-    | &nbsp;&nbsp; 🤗 <a href="https://github.com/Gnonymous/Web-CogReasoner">Models(Coming soon)</a> &nbsp;&nbsp;
-    | &nbsp;&nbsp; 🤗 <a href="https://github.com/Gnonymous/Web-CogReasoner">Dataset(Coming soon)</a> &nbsp;&nbsp;
+    | &nbsp;&nbsp; 🤗 <a href="https://huggingface.co/Gnonymous/Web-CogReasoner">Models(Coming soon)</a> &nbsp;&nbsp;
+    | &nbsp;&nbsp; 🤗 <a href="https://huggingface.co/datasets/Gnonymous/Web-CogDataset">Dataset(Coming soon)</a> &nbsp;&nbsp;
     | &nbsp;&nbsp; 🤗 <a href="https://github.com/Gnonymous/Web-CogReasoner">Bench(Coming soon)</a> &nbsp;&nbsp;
 </p>
 <p align="center">
@@ -15,7 +15,7 @@
 </p>
 
 [![📝 Paper (arXiv)](https://img.shields.io/badge/Paper-arXiv-b31b1b?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2508.01858)
-[![🤗 Model on Hugging Face](https://img.shields.io/badge/🤗%20%20Space-HuggingFace-yellow)](https://huggingface.co/)
+[![🤗 Model on Hugging Face](https://img.shields.io/badge/🤗%20%20Space-HuggingFace-yellow)](https://huggingface.co/collections/Gnonymous/web-cogreasoner-68932814ffe40e62f35602dd)
 [![🐛 Open Issues](https://img.shields.io/github/issues-raw/Gnonymous/Web-CogReasoner?color=orange)](https://github.com/Gnonymous/Web-CogReasoner/issues)
 [![⭐ GitHub Stars](https://img.shields.io/github/stars/Gnonymous/Web-CogReasoner)](https://github.com/Gnonymous/Web-CogReasoner)
 
