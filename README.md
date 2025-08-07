@@ -92,14 +92,11 @@ This section evaluates the models' ability to perform complex, multi-step tasks 
 ## Citation
 
 ```bibtex
-@misc{guo2025webcogreasonerknowledgeinducedcognitivereasoning,
-      title={Web-CogReasoner: Towards Knowledge-Induced Cognitive Reasoning for Web Agents}, 
-      author={Yuhan Guo and Cong Guo and Aiwen Sun and Hongliang He and Xinyu Yang and Yue Lu and Yingji Zhang and Xuntao Guo and Dong Zhang and Jianzhuang Liu and Jiang Duan and Yijia Xiao and Liangjian Wen and Hai-Ming Xu and Yong Dai},
-      year={2025},
-      eprint={2508.01858},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2508.01858}, 
+@article{guo2025web,
+title={Web-CogReasoner: Towards Knowledge-Induced Cognitive Reasoning for Web Agents},
+author={Guo, Yuhan and Guo, Cong and Sun, Aiwen and He, Hongliang and Yang, Xinyu and Lu, Yue and Zhang, Yingji and Guo, Xuntao and Zhang, Dong and Liu, Jianzhuang and others},
+journal={arXiv preprint arXiv:2508.01858},
+year={2025}
 }
 ```
 
