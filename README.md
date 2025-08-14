@@ -11,7 +11,7 @@
 </p>
 <p align="center">
     &nbsp;&nbsp; 🌐 <a href="https://Gnonymous.github.io/Web-CogReasoner">Homepage</a> &nbsp;&nbsp;
-    | &nbsp;&nbsp; 💬 <a href="https://eohan.me/blogs/Web-CogReasoner">Blog</a> &nbsp;&nbsp;
+    | &nbsp;&nbsp; 💬 <a href="https://Gnonymous.github.io/blogs/Web-CogReasoner">Blog</a> &nbsp;&nbsp;
 </p>
 
 [![📝 Paper (arXiv)](https://img.shields.io/badge/Paper-arXiv-b31b1b?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2508.01858)
