@@ -8,25 +8,23 @@ from tqdm.asyncio import tqdm_asyncio
 from openai import AsyncOpenAI
 from rouge import Rouge
 
-Model_name = "Web-CogReasoner"  # 模型名称
+Model_name = "Web-CogReasoner"
 
-# ===== 配置项 =====
-TEST_JSON_PATH = "/code/Web-CogReasoner/benchmark/Memorizing/Element_Attribute_249.json"  # 测试集 JSON 路径
-MODEL_NAME = "qwen2vl"  # 使用的模型名称
-MAX_SAMPLE = 249  # 测试样本数
-MAX_CONCURRENT_REQUESTS = 5  # 最大并发数
-ACCURACY_PRINT_INTERVAL = 10  # 每多少步打印一次准确率
-OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_Web-CogBench/{Model_name}-Element-Attribute.json"  # 推理结果保存路径
+# Config
+TEST_JSON_PATH = "/code/Web-CogReasoner/benchmark/Memorizing/Element_Attribute_249.json"
+MODEL_NAME = "qwen2vl"
+MAX_SAMPLE = 249
+MAX_CONCURRENT_REQUESTS = 5
+ACCURACY_PRINT_INTERVAL = 10
+OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_Web-CogBench/{Model_name}-Element-Attribute.json"
 
-# ===== 初始化客户端和 ROUGE 计算器 =====
+# OpenAI client and ROUGE
 client = AsyncOpenAI(
     api_key="EMPTY",
     base_url="http://localhost:8080/v1",
 )
-# 全局初始化 Rouge 对象，计算 ROUGE-1 分数
 rouge = Rouge(metrics=['rouge-1'])
 
-# ===== 提取模型输出的 Role 和 Name =====
 def parse_model_output(text):
     if text is None:
         text = ""
@@ -38,20 +36,17 @@ def parse_model_output(text):
     
     return role, name
 
-# ===== 异步处理单个样本，含推理与比对 =====
 async def process_item(index, item, sem, stats):
     async with sem:
         image_path = item["images"][0]
         gt_response = item["messages"][-1]["content"]
 
-        # 加载并编码图像
         async with aiofiles.open(image_path, "rb") as f:
             content = await f.read()
         encoded_image = base64.b64encode(content).decode("utf-8")
         image_data_uri = f"data:image;base64,{encoded_image}"
 
         try:
-            # 模型推理
             response = await client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=[
@@ -79,33 +74,26 @@ async def process_item(index, item, sem, stats):
         except Exception as e:
             pred_text = f"[ERROR] {str(e)}"
 
-        # 解析 Role 和 Name
         pred_role, pred_name = parse_model_output(pred_text)
         gt_role, gt_name = parse_model_output(gt_response)
         
-        # Role 匹配评估
         match_role = pred_role == gt_role
 
-        # Name 匹配评估 (使用 ROUGE-1 F1 分数)
-        # 按照示例，处理空字符串以避免 ROUGE 库出错
         pred_for_rouge = pred_name if pred_name else " "
         gt_for_rouge = gt_name if gt_name else " "
         
         try:
-            # 将 gt 包装成列表，以匹配 ROUGE 库的输入格式
             scores = rouge.get_scores([pred_for_rouge], [gt_for_rouge], avg=True)
             name_f1 = scores['rouge-1']['f']
             name_precision = scores['rouge-1']['p']
             name_recall = scores['rouge-1']['r']
         except Exception:
-            # 如果 ROUGE 计算出现任何异常，则该样本分数为0
             name_f1, name_precision, name_recall = 0.0, 0.0, 0.0
 
         match_name = name_f1 == 1.0
 
         match_all = match_role and match_name
 
-        # 统计信息更新
         stats["total"] += 1
         stats["role_correct"] += int(match_role)
         stats["all_correct"] += int(match_all)
@@ -113,13 +101,11 @@ async def process_item(index, item, sem, stats):
         stats["name_precision_total"] += name_precision
         stats["name_recall_total"] += name_recall
 
-
-        # 每 N 步打印一次准确率
         if stats["total"] % ACCURACY_PRINT_INTERVAL == 0:
             role_acc = stats["role_correct"] / stats["total"] * 100
             avg_name_f1 = stats["name_f1_total"] / stats["total"] * 100
             full_acc = stats["all_correct"] / stats["total"] * 100
-            print(f"\n📊 Step {stats['total']}: Role Acc={role_acc:.2f}%, Avg Name ROUGE-1 F1={avg_name_f1:.2f}%, Full Score={(role_acc + avg_name_f1) / 2:.2f}%\n")
+            print(f"\nStep {stats['total']}: Role Acc={role_acc:.2f}%, Avg Name ROUGE-1 F1={avg_name_f1:.2f}%, Full Score={(role_acc + avg_name_f1) / 2:.2f}%\n")
 
         return {
             "image": os.path.basename(image_path),
@@ -135,7 +121,6 @@ async def process_item(index, item, sem, stats):
             "match_all": match_all
         }
 
-# ===== 主函数入口 =====
 async def main():
     with open(TEST_JSON_PATH, "r", encoding="utf-8") as f:
         test_data = json.load(f)[:MAX_SAMPLE]
@@ -156,19 +141,15 @@ async def main():
 
     total_samples = stats["total"] if stats["total"] > 0 else 1
     
-    # 计算最终指标
     role_acc = (stats["role_correct"] / total_samples * 100)
     full_acc = (stats["all_correct"] / total_samples * 100)
     
-    # 计算 Name 的平均 Precision, Recall, ROUGE-1 F1-Score
     avg_name_precision = (stats["name_precision_total"] / total_samples * 100)
     avg_name_recall = (stats["name_recall_total"] / total_samples * 100)
     avg_name_f1 = (stats["name_f1_total"] / total_samples * 100)
 
-    # 错误样例收集
     errors = [r for r in results if not r["match_all"]]
 
-    # 写入 JSON 文件
     output = {
         "metrics": {
             "total_samples": stats["total"],
@@ -187,17 +168,15 @@ async def main():
     with open(OUTPUT_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
-    # 控制台输出准确率
-    print(f"\n✅ Evaluation Complete")
-    print(f"🎯 Role Accuracy             : {role_acc:.2f}%")
-    print(f"🎯 Avg Name ROUGE-1 Precision: {avg_name_precision:.2f}%")
-    print(f"🎯 Avg Name ROUGE-1 Recall   : {avg_name_recall:.2f}%")
-    print(f"🎯 Avg Name ROUGE-1 F1-Score : {avg_name_f1:.2f}%")
-    print(f"🎯 Full Match Accuracy       : {full_acc:.2f}%")
-    print(f"🎯 Full Score                : {(role_acc + avg_name_f1) / 2:.2f}%")
-    print(f"📁 Results saved to: {OUTPUT_JSON_PATH}")
+    print(f"\nEvaluation Complete")
+    print(f"Role Accuracy             : {role_acc:.2f}%")
+    print(f"Avg Name ROUGE-1 Precision: {avg_name_precision:.2f}%")
+    print(f"Avg Name ROUGE-1 Recall   : {avg_name_recall:.2f}%")
+    print(f"Avg Name ROUGE-1 F1-Score : {avg_name_f1:.2f}%")
+    print(f"Full Match Accuracy       : {full_acc:.2f}%")
+    print(f"Full Score                : {(role_acc + avg_name_f1) / 2:.2f}%")
+    print(f"Results saved to: {OUTPUT_JSON_PATH}")
 
-    # 错误示例展示
     print("\n❌ Sample Errors (up to 5):")
     for r in errors[:5]:
         print(f"- Image        : {r['image']}")
@@ -205,6 +184,5 @@ async def main():
         print(f"  Prediction   : {r['prediction']}")
         print(f"  Name ROUGE-1 F1: {r['metrics_per_sample']['name_rouge1_f1']:.2f}\n")
 
-# ===== 执行主函数 =====
 if __name__ == "__main__":
     asyncio.run(main())

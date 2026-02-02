@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import base64
 import re
@@ -7,51 +8,49 @@ import aiofiles
 from tqdm.asyncio import tqdm_asyncio
 from openai import AsyncOpenAI
 
-Test_Model = "Qwen2.5-VL-7B"  # 模型名称
+Test_Model = "Web-CogReasoner"
 
-# ===== 配置项 =====
-TEST_JSON_PATH = "/code/CogReasoner/Test/VisualWebBench_Action_Ground_103.json"  # 测试集 JSON 路径
-MODEL_NAME = "qwen2vl"  # 使用的模型名称
-MAX_SAMPLE = 103  # 测试样本数
-MAX_CONCURRENT_REQUESTS = 5  # 最大并发数
-ACCURACY_PRINT_INTERVAL = 10  # 每多少步打印一次准确率
-OUTPUT_JSON_PATH = f"/code/CogReasoner/Code/Evalaute/Result/Test-{Test_Model}-VisualWebBench_Action_Ground_103_repeat.json"  # 推理结果保存路径
+# Config
+TEST_JSON_PATH = "/code/Web-CogReasoner/benchmark/VisualWebBench/VisualWebBench_Action_Ground_103.json"
+MODEL_NAME = "qwen2vl"
+MAX_SAMPLE = 103
+MAX_CONCURRENT_REQUESTS = 10
+ACCURACY_PRINT_INTERVAL = 10
+OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_VisualWebBench/{Test_Model}-VisualWebBench_Action_Ground_103.json"
 
-# ===== 初始化 OpenAI 客户端（对接 vLLM API） =====
+# OpenAI client
 client = AsyncOpenAI(
     api_key="EMPTY",
     base_url="http://localhost:8080/v1",
 )
 
-# ===== 提取模型输出的选项，如 G、A、B等 =====
 def extract_answer_letter(text):
-    # 优先匹配 "The answer is: X" 或 "The answer is X"
+    match = re.search(r"###\s*Final Choice:\s*Option[:\s]*([A-H])\b", text, re.IGNORECASE)
+    if match:
+        return match.group(1).upper()
+
     match = re.search(r"The answer is[:\s]*([A-H])\b", text, re.IGNORECASE)
     if match:
         return match.group(1).upper()
 
-    # 回退匹配：句末单独字母、大写选项等
     fallback = re.findall(r"\b([A-H])\b", text.upper())
     if fallback:
-        # 返回最后一个出现的字母（防止中间干扰项）
         return fallback[-1]
+
     return None
 
-# ===== 异步处理单个样本 =====
 async def process_item(index, item, sem, stats):
     async with sem:
         image_path = item["images"][0]
         gt_answer = item["messages"][-1]["content"].strip().upper()
         prompt = item["messages"][0]["content"]
 
-        # 编码图像
         async with aiofiles.open(image_path, "rb") as f:
             content = await f.read()
         encoded_image = base64.b64encode(content).decode("utf-8")
         image_data_uri = f"data:image;base64,{encoded_image}"
 
         try:
-            # 推理请求
             response = await client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=[
@@ -62,7 +61,7 @@ async def process_item(index, item, sem, stats):
                             {"type": "image_url", "image_url": {"url": image_data_uri}},
                             {
                                 "type": "text",
-                                "text": prompt + "You should directly tell me your choice in a single uppercase letter, and do not output any explanation or any other contents.",
+                                "text": prompt,
                             },
                         ],
                     },
@@ -93,7 +92,6 @@ async def process_item(index, item, sem, stats):
             "raw_model_output": pred_text
         }
 
-# ===== 主函数 =====
 async def main():
     with open(TEST_JSON_PATH, "r", encoding="utf-8") as f:
         test_data = json.load(f)[:MAX_SAMPLE]
@@ -108,7 +106,6 @@ async def main():
     accuracy = stats["correct"] / stats["total"] * 100
     errors = [r for r in results if not r["match"]]
 
-    # 写入输出
     output = {
         "metrics": {
             "total": stats["total"],
@@ -121,7 +118,6 @@ async def main():
     with open(OUTPUT_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
-    # 控制台输出摘要
     print(f"\n✅ Evaluation Complete")
     print(f"🎯 Accuracy: {accuracy:.2f}%")
     print(f"📁 Results saved to: {OUTPUT_JSON_PATH}")
@@ -133,9 +129,8 @@ async def main():
         print(f"  Prediction   : {r['prediction']}")
         print(f"  Raw Output   : {r['raw_model_output']}\n")
 
-    await client.aclose()  # ✅ 释放连接池
+    await client.aclose()
 
-# ===== 启动入口 =====
 if __name__ == "__main__":
     asyncio.run(main())
-    sys.exit(0)  # ✅ 强制退出，防止异步底层未回收导致挂起
+    sys.exit(0)

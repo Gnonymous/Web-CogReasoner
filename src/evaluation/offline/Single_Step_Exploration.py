@@ -8,24 +8,22 @@ import aiofiles
 from tqdm.asyncio import tqdm_asyncio
 from openai import AsyncOpenAI
 
-Model_name = "UI-TARs"  # 模型名称
+Model_name = "Web-CogReasoner"
 
-# ===== 配置项 =====
-# 请确保这里的路径和模型名是正确的
-TEST_JSON_PATH = "/code/CogReasoner/Test/MultiStep_Selected_OnePerSite_step01_FinalAction.json"
+# Config
 MODEL_NAME = "qwen2vl"
-MAX_SAMPLE = 70  # 您可以根据需要调整测试样本数，None表示测试全部
+MAX_SAMPLE = 70
 MAX_CONCURRENT_REQUESTS = 5
 ACCURACY_PRINT_INTERVAL = 10
-OUTPUT_JSON_PATH = f"/code/CogReasoner/Code/Evalaute/Result/Test-{Model_name}-Single_Step.json"
+TEST_JSON_PATH = "/code/Web-CogReasoner/benchmark/Exploring/Single_Step_Exploration.json"
+OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_Web-CogBench/{Model_name}-Single_Step.json"
 
-# ===== 初始化 OpenAI 客户端 =====
+# OpenAI client
 client = AsyncOpenAI(
     api_key="EMPTY",
     base_url="http://localhost:8080/v1",
 )
 
-# ===== 答案提取函数 (无变化) =====
 def extract_action(text: str):
     if not text:
         return None
@@ -41,68 +39,45 @@ def extract_action(text: str):
         return f"{action}({node_id})"
     return None
 
-# ===== 解析多答案的 Ground Truth (无变化) =====
 def parse_ground_truth(gt_content: str):
     action_parts = gt_content.split(';')
     parsed_actions = [extract_action(part.strip()) for part in action_parts]
     return [action for action in parsed_actions if action is not None]
 
-# ===== 关键修改 1: 新增智能比较函数 =====
 def compare_actions(prediction: str, ground_truth_list: list) -> bool:
-    """
-    智能比较预测动作和真实动作列表。
-
-    规则:
-    1. 如果预测为空，则不匹配。
-    2. 对于任何动作，如果预测与列表中的任何一个真实动作完全相同，则匹配。
-    3. **特殊规则**: 如果预测动作和真实动作都是 TYPE 类型，
-       只要它们的 node_id 相同，就认为它们匹配，忽略输入的具体文本。
-    
-    Args:
-        prediction (str): 标准化后的预测动作，例如 "TYPE(6, LYHNCNCT)"。
-        ground_truth_list (list): 标准化后的真实动作列表，例如 ["TYPE(6, LYNCT)"]。
-
-    Returns:
-        bool: 如果匹配则返回 True，否则返回 False。
-    """
+    """Compare predicted action to ground-truth list with TYPE node-id rule."""
     if not prediction:
         return False
 
-    # 预先解析预测动作的类型和ID
     pred_match = re.match(r"(\w+)\((\d+)", prediction)
     if not pred_match:
-        return False # 预测格式不正确
+        return False
     pred_action_type = pred_match.group(1)
     pred_node_id = pred_match.group(2)
 
     for gt_action in ground_truth_list:
-        # 规则 2: 完全匹配总是正确的
         if prediction == gt_action:
             return True
 
-        # 规则 3: 对 TYPE 动作的特殊处理
         if pred_action_type == "TYPE" and gt_action.startswith("TYPE("):
             gt_match = re.match(r"TYPE\((\d+)", gt_action)
             if gt_match:
                 gt_node_id = gt_match.group(1)
                 if pred_node_id == gt_node_id:
-                    return True # Node ID 匹配，判定为正确
+                    return True
     
     return False
 
-# ===== 异步处理单个样本 (少量修改) =====
 async def process_item(index, item, sem, stats):
     async with sem:
         image_paths = item["images"]
         prompt = item["messages"][0]["content"]
-        prompt = prompt[:prompt.find("OBSERVATION:")]
-        print(prompt)
         
         gt_json_str = item["messages"][-1]["content"]
         gt_answers_list = parse_ground_truth(gt_json_str)
 
         if not gt_answers_list:
-            print(f"⚠️ 无法解析 Ground Truth: {gt_json_str}")
+            print(f"Warning: Failed to parse ground truth: {gt_json_str}")
             return {
                 "images": image_paths,
                 "prompt": prompt,
@@ -140,7 +115,7 @@ async def process_item(index, item, sem, stats):
                 "content": image_contents + [
                     {
                         "type": "text",
-                        "text": "Based on the provided image, task description,please output the element required to complete the task." + prompt.strip(),
+                        "text": prompt.strip(),
                     }
                 ],
             },
@@ -160,18 +135,15 @@ async def process_item(index, item, sem, stats):
 
         pred_answer = extract_action(pred_text)
         
-        # <--- 关键修改 2: 使用新的智能比较函数 ---
         match = compare_actions(pred_answer, gt_answers_list)
         
-        # 更新统计数据
         stats["total"] += 1
         stats["correct"] += int(match)
 
         if stats["total"] > 0 and stats["total"] % ACCURACY_PRINT_INTERVAL == 0:
             acc = stats["correct"] / stats["total"] * 100
-            print(f"\n📊 Step {stats['total']}: Accuracy = {acc:.2f}%\n")
+            print(f"\nStep {stats['total']}: Accuracy = {acc:.2f}%\n")
 
-        # 返回结果字典
         return {
             "images": image_paths,
             "prompt": prompt,
@@ -181,8 +153,6 @@ async def process_item(index, item, sem, stats):
             "raw_model_output": pred_text
         }
 
-
-# ===== 主函数 (无变化) =====
 async def main():
     with open(TEST_JSON_PATH, "r", encoding="utf-8") as f:
         test_data = json.load(f)
@@ -194,12 +164,12 @@ async def main():
     stats = {"total": 0, "correct": 0}
     tasks = [process_item(i, item, sem, stats) for i, item in enumerate(test_data)]
 
-    print(f"\n🚀 Starting evaluation of {len(tasks)} samples with model '{MODEL_NAME}'...\n")
+    print(f"\nStarting evaluation of {len(tasks)} samples with model '{MODEL_NAME}'...\n")
     results = await tqdm_asyncio.gather(*tasks)
     
     valid_results = [r for r in results if r is not None]
     if not valid_results:
-        print("\n❌ No valid samples were processed. Evaluation cannot be completed.")
+        print("\nNo valid samples were processed. Evaluation cannot be completed.")
         return
 
     final_total = stats["total"]
@@ -222,12 +192,12 @@ async def main():
     with open(OUTPUT_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
-    print(f"\n✅ Evaluation Complete")
-    print(f"🎯 Accuracy: {accuracy:.2f}% ({final_correct}/{final_total})")
-    print(f"📁 Results saved to: {OUTPUT_JSON_PATH}")
+    print(f"\nEvaluation Complete")
+    print(f"Accuracy: {accuracy:.2f}% ({final_correct}/{final_total})")
+    print(f"Results saved to: {OUTPUT_JSON_PATH}")
 
     if errors:
-        print("\n❌ Sample Errors (up to 5):")
+        print("\nSample Errors (up to 5):")
         for r in errors[:5]:
             print(f"- Images       : {', '.join(r['images'])}")
             print(f"  Ground Truth : {r['ground_truth']}")
@@ -239,6 +209,5 @@ async def main():
 
     await client.aclose()
 
-# ===== 启动入口 (无变化) =====
 if __name__ == "__main__":
     asyncio.run(main())

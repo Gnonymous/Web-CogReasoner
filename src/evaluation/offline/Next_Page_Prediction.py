@@ -7,44 +7,44 @@ import aiofiles
 from tqdm.asyncio import tqdm_asyncio
 from openai import AsyncOpenAI
 
-Model_name = "OpenWebVoyager"  # 模型名称
+Model_name = "Web-CogReasoner"
 
-# ===== 配置项 =====
-TEST_JSON_PATH = "/code/CogReasoner/Test/Next_Page_Prediction_100.json"  # 测试集 JSON 路径
-MODEL_NAME = "qwen2vl"  # 使用的模型名称
-MAX_SAMPLE = 93  # 测试样本数
-MAX_CONCURRENT_REQUESTS = 10  # 最大并发数
-ACCURACY_PRINT_INTERVAL = 10  # 每多少步打印一次准确率
-OUTPUT_JSON_PATH = f"/code/CogReasoner/Code/Evalaute/Result/Test-{Model_name}-Next_Page_Prediction_100.json"  # 推理结果保存路径
+# Configuration
+TEST_JSON_PATH = "/code/Web-CogReasoner/benchmark/Memorizing/Next_Page_Prediction_100.json"  # Path to test dataset
+MODEL_NAME = "qwen2vl"  # Target model
+MAX_SAMPLE = 100  # Number of samples to test
+MAX_CONCURRENT_REQUESTS = 10  # Concurrent request limit
+ACCURACY_PRINT_INTERVAL = 10  # Logging interval
+OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_Web-CogBench/{Model_name}-Next_Page_Prediction_100.json"  # Output path
 
-# ===== 初始化 OpenAI 客户端（对接 vLLM API） =====
+# Initialize OpenAI client (vLLM API)
 client = AsyncOpenAI(
     api_key="EMPTY",
     base_url="http://localhost:8080/v1",
 )
 
-# ===== 提取模型输出的选项，如 G、A、B等 =====
+# Extract answer letter (A, B, C, etc.) from text
 def extract_answer_letter(text):
     match = re.search(r"\b([A-H])\b", text.strip(), re.IGNORECASE)
     if match:
         return match.group(1).upper()
     return None
 
-# ===== 异步处理单个样本 =====
+# Asynchronous processing of a single item
 async def process_item(index, item, sem, stats):
     async with sem:
         image_path = item["images"][0]
         gt_answer = item["messages"][-1]["content"].strip().upper()
         prompt = item["messages"][0]["content"]
 
-        # 编码图像
+        # Encode image to base64
         async with aiofiles.open(image_path, "rb") as f:
             content = await f.read()
         encoded_image = base64.b64encode(content).decode("utf-8")
         image_data_uri = f"data:image;base64,{encoded_image}"
 
         try:
-            # 推理请求
+            # Model inference
             response = await client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=[
@@ -86,7 +86,7 @@ async def process_item(index, item, sem, stats):
             "raw_model_output": pred_text
         }
 
-# ===== 主函数 =====
+# Main execution logic
 async def main():
     with open(TEST_JSON_PATH, "r", encoding="utf-8") as f:
         test_data = json.load(f)[:MAX_SAMPLE]
@@ -101,7 +101,7 @@ async def main():
     accuracy = stats["correct"] / stats["total"] * 100
     errors = [r for r in results if not r["match"]]
 
-    # 写入输出
+    # Save results
     output = {
         "metrics": {
             "total": stats["total"],
@@ -114,7 +114,7 @@ async def main():
     with open(OUTPUT_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
-    # 控制台输出摘要
+    # Console output
     print(f"\n✅ Evaluation Complete")
     print(f"🎯 Accuracy: {accuracy:.2f}%")
     print(f"📁 Results saved to: {OUTPUT_JSON_PATH}")
@@ -126,9 +126,9 @@ async def main():
         print(f"  Prediction   : {r['prediction']}")
         print(f"  Raw Output   : {r['raw_model_output']}\n")
 
-    await client.aclose()  # ✅ 释放连接池
+    await client.aclose()  # Release connection pool
 
-# ===== 启动入口 =====
+# Run main
 if __name__ == "__main__":
     asyncio.run(main())
-    sys.exit(0)  # ✅ 强制退出，防止异步底层未回收导致挂起
+    sys.exit(0)  # Force exit to ensure cleanup
