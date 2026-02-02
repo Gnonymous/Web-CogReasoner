@@ -89,6 +89,17 @@ This section evaluates the models' ability to perform complex, multi-step tasks 
 ## Quickstart
 *Coming soon*
 
+## Tested Environment
+
+The following environment was detected on the current machine:
+
+- OS: Ubuntu 20.04.5 LTS (Focal Fossa)
+- Kernel: Linux 3.10.0-1160.el7.x86_64
+- Python: 3.8.13
+- pip: 25.0.1
+- Google Chrome: 137.0.7151.55
+- ChromeDriver: 137.0.7151.55
+
 ## Citation
 
 ```bibtex
@@ -99,4 +110,3 @@ journal={arXiv preprint arXiv:2508.01858},
 year={2025}
 }
 ```
-

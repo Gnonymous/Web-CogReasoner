@@ -1,0 +1,209 @@
+import os
+import json
+import base64
+import re
+import asyncio
+import aiofiles
+from tqdm.asyncio import tqdm_asyncio
+from openai import AsyncOpenAI
+from rouge import Rouge
+
+Model_name = "Gemini"  # 模型名称
+
+# ===== 配置项 =====
+TEST_JSON_PATH = "/code/CogReasoner/Test/Element_Attribute_249.json"  # 测试集 JSON 路径
+MODEL_NAME = "gemini-2.5-pro"  # 使用的模型名称
+MAX_SAMPLE = 249  # 测试样本数
+MAX_CONCURRENT_REQUESTS = 5  # 最大并发数
+ACCURACY_PRINT_INTERVAL = 10  # 每多少步打印一次准确率
+OUTPUT_JSON_PATH = f"/code/CogReasoner/Code/Evalaute/Result/Test-{Model_name}-Element-Attribute.json"  # 推理结果保存路径
+
+# ===== 初始化客户端和 ROUGE 计算器 =====
+client = AsyncOpenAI(api_key=os.getenv("GEMINI_API_KEY", ""),
+                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
+# 全局初始化 Rouge 对象，计算 ROUGE-1 分数
+rouge = Rouge(metrics=['rouge-1'])
+
+# ===== 提取模型输出的 Role 和 Name =====
+def parse_model_output(text):
+    if text is None:
+        text = ""
+    role_match = re.search(r"Role:\s*\[?([^\]\n,]+)\]?", text, re.IGNORECASE)
+    name_match = re.search(r"Name:\s*\[?([^\]\n,]+)\]?", text, re.IGNORECASE)
+    
+    role = role_match.group(1).strip() if role_match else None
+    name = name_match.group(1).strip() if name_match else None
+    
+    return role, name
+
+# ===== 异步处理单个样本，含推理与比对 =====
+async def process_item(index, item, sem, stats):
+    async with sem:
+        image_path = item["images"][0]
+        gt_response = item["messages"][-1]["content"]
+
+        # 加载并编码图像
+        async with aiofiles.open(image_path, "rb") as f:
+            content = await f.read()
+        encoded_image = base64.b64encode(content).decode("utf-8")
+        image_data_uri = f"data:image/png;base64,{encoded_image}"
+
+        try:
+            # 模型推理
+            response = await client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": image_data_uri}},
+                            {
+                                "type": "text",
+                                "text": (
+                                        '''
+                                        You are viewing a screenshot of a webpage where a specific element is marked with a red box. \nYour task is to predict its ARIA role and accessible name based on the context of the webpage and the visual appearance of the element. Please make your prediction using the following list of roles with their semantic descriptions, combined with visual clues from the screenshot (such as text, position, and style).\n** Possible Roles and Their Semantics\n1.link: A hyperlink used to navigate to other pages or resources.\n2.button: A button used to trigger actions (e.g., submit, confirm).\n3.textbox: A single-line text input field for entering free text.\n4.searchbox: A search input field for entering search queries.\n5.checkbox: A checkbox for multiple-choice options.\n6.radio: A radio button for single-choice options.\n7.slider: A slider for adjusting a range of values.\n8.spinbutton: A numeric adjuster for incrementing or decrementing values.\n9.combobox: A dropdown selection box allowing choices from options.\n10.option: A single option, typically within a dropdown or list.\n11.listbox: A list selection box displaying multiple selectable items.\n12.img: An image used to display visual content.\n13.form: A form containing a collection of user input controls.\n14.navigation: A navigation area providing links for the page or site.\n16.banner: A header, typically containing the site title or banner.\n17.contentinfo: A footer, usually containing copyright or contact information.\n18.article: An article, an independent content block (e.g., news, post).\n19.search: A search area, typically containing search functionality.\n20.heading: A heading used for content hierarchy (level may need to be inferred, e.g., heading level 1).\n21.list: A list containing multiple items.\n22.listitem: A list item, a single entry within a list.\n23.table: A table for displaying data in rows and columns.\n24.row: A table row containing cells.\n25.columnheader: A column header in a table.\n26.rowheader: A row header in a table.\n27.cell: A cell, a data item in a table.\n28.dialog: A dialog box, such as a popup window or modal.\n29.progressbar: A progress bar showing task progress.\n30.status: A status update providing dynamic information.\n31.paragraph: A paragraph, a block of text content.\n\n** Prediction Guidance\n1. Role:\nSelect the most matching role based on the element\u2019s visual characteristics (e.g., button shape, input field border) and context (e.g., located in a navigation bar or form).\nRefer to the role semantics to ensure the prediction aligns with its definition.\nIf uncertain, prioritize values from the above role list and avoid arbitrary guesses.\n2. Name:\nExtract the name from visible text on the element (e.g., \u201cSubmit\u201d on a button, a label next to an input field).\nIf no visible text is present, infer a reasonable name (e.g., \u201cunlabeled button\u201d).\n** Output Format\nPlease provide your prediction in the following format:\nRole: [role], Name: [name]\nRemeber the [] where  [role] and [name] MUST be enclosed in square brackets []
+                                        '''
+                                ),
+                            },
+                        ],
+                    },
+                ],
+                temperature=0.1,
+                top_p=0.95,
+                max_tokens=2048,
+            )
+            pred_text = response.choices[0].message.content.strip()
+        except Exception as e:
+            pred_text = f"[ERROR] {str(e)}"
+
+        # 解析 Role 和 Name
+        pred_role, pred_name = parse_model_output(pred_text)
+        gt_role, gt_name = parse_model_output(gt_response)
+        
+        # Role 匹配评估
+        match_role = pred_role == gt_role
+
+        # Name 匹配评估 (使用 ROUGE-1 F1 分数)
+        # 按照示例，处理空字符串以避免 ROUGE 库出错
+        pred_for_rouge = pred_name if pred_name else " "
+        gt_for_rouge = gt_name if gt_name else " "
+        
+        try:
+            # 将 gt 包装成列表，以匹配 ROUGE 库的输入格式
+            scores = rouge.get_scores([pred_for_rouge], [gt_for_rouge], avg=True)
+            name_f1 = scores['rouge-1']['f']
+            name_precision = scores['rouge-1']['p']
+            name_recall = scores['rouge-1']['r']
+        except Exception:
+            # 如果 ROUGE 计算出现任何异常，则该样本分数为0
+            name_f1, name_precision, name_recall = 0.0, 0.0, 0.0
+
+        match_name = name_f1 == 1.0
+
+        match_all = match_role and match_name
+
+        # 统计信息更新
+        stats["total"] += 1
+        stats["role_correct"] += int(match_role)
+        stats["all_correct"] += int(match_all)
+        stats["name_f1_total"] += name_f1
+        stats["name_precision_total"] += name_precision
+        stats["name_recall_total"] += name_recall
+
+
+        # 每 N 步打印一次准确率
+        if stats["total"] % ACCURACY_PRINT_INTERVAL == 0:
+            role_acc = stats["role_correct"] / stats["total"] * 100
+            avg_name_f1 = stats["name_f1_total"] / stats["total"] * 100
+            full_acc = stats["all_correct"] / stats["total"] * 100
+            print(f"\n📊 Step {stats['total']}: Role Acc={role_acc:.2f}%, Avg Name ROUGE-1 F1={avg_name_f1:.2f}%, Full Score={(role_acc + avg_name_f1) / 2:.2f}%\n")
+
+        return {
+            "image": os.path.basename(image_path),
+            "ground_truth": {"role": gt_role, "name": gt_name},
+            "prediction": {"role": pred_role, "name": pred_name},
+            "metrics_per_sample": {
+                "name_rouge1_f1": name_f1,
+                "name_rouge1_precision": name_precision,
+                "name_rouge1_recall": name_recall
+            },
+            "match_role": match_role,
+            "match_name": match_name,
+            "match_all": match_all,
+            "raw":pred_text
+        }
+
+# ===== 主函数入口 =====
+async def main():
+    with open(TEST_JSON_PATH, "r", encoding="utf-8") as f:
+        test_data = json.load(f)[:MAX_SAMPLE]
+
+    sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+    stats = {
+        "total": 0, 
+        "role_correct": 0, 
+        "all_correct": 0,
+        "name_f1_total": 0.0,
+        "name_precision_total": 0.0,
+        "name_recall_total": 0.0
+    }
+    tasks = [process_item(i, item, sem, stats) for i, item in enumerate(test_data)]
+
+    print(f"\n🚀 Starting async evaluation of {len(tasks)} samples...\n")
+    results = await tqdm_asyncio.gather(*tasks)
+
+    total_samples = stats["total"] if stats["total"] > 0 else 1
+    
+    # 计算最终指标
+    role_acc = (stats["role_correct"] / total_samples * 100)
+    full_acc = (stats["all_correct"] / total_samples * 100)
+    
+    # 计算 Name 的平均 Precision, Recall, ROUGE-1 F1-Score
+    avg_name_precision = (stats["name_precision_total"] / total_samples * 100)
+    avg_name_recall = (stats["name_recall_total"] / total_samples * 100)
+    avg_name_f1 = (stats["name_f1_total"] / total_samples * 100)
+
+    # 错误样例收集
+    errors = [r for r in results if not r["match_all"]]
+
+    # 写入 JSON 文件
+    output = {
+        "metrics": {
+            "total_samples": stats["total"],
+            "role_accuracy": role_acc,
+            "name_metrics": {
+                "average_rouge1_precision": avg_name_precision,
+                "average_rouge1_recall": avg_name_recall,
+                "average_rouge1_f1_score": avg_name_f1,
+            },
+            "full_match_accuracy": full_acc,
+            "full_score":(role_acc + avg_name_f1) / 2
+        },
+        "errors": errors
+    }
+
+    with open(OUTPUT_JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(output, f, indent=2, ensure_ascii=False)
+
+    # 控制台输出准确率
+    print(f"\n✅ Evaluation Complete")
+    print(f"🎯 Role Accuracy             : {role_acc:.2f}%")
+    print(f"🎯 Avg Name ROUGE-1 Precision: {avg_name_precision:.2f}%")
+    print(f"🎯 Avg Name ROUGE-1 Recall   : {avg_name_recall:.2f}%")
+    print(f"🎯 Avg Name ROUGE-1 F1-Score : {avg_name_f1:.2f}%")
+    print(f"🎯 Full Match Accuracy       : {full_acc:.2f}%")
+    print(f"🎯 Full Score                : {(role_acc + avg_name_f1) / 2:.2f}%")
+    print(f"📁 Results saved to: {OUTPUT_JSON_PATH}")
+
+    # 错误示例展示
+    print("\n❌ Sample Errors (up to 5):")
+    for r in errors[:5]:
+        print(f"- Image        : {r['image']}")
+        print(f"  Ground Truth : {r['ground_truth']}")
+        print(f"  Prediction   : {r['prediction']}")
+        print(f"  Name ROUGE-1 F1: {r['metrics_per_sample']['name_rouge1_f1']:.2f}\n")
+
+# ===== 执行主函数 =====
+if __name__ == "__main__":
+    asyncio.run(main())
