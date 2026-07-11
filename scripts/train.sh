@@ -6,6 +6,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
 usage() {
     cat <<USAGE
 Usage: ./scripts/train.sh [stage1|stage2|stage3] [options]
@@ -31,6 +34,11 @@ die() {
 if [[ $# -lt 1 ]]; then
     usage
     exit 1
+fi
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    usage
+    exit 0
 fi
 
 STAGE="$1"
@@ -82,8 +90,8 @@ done
 # default setting for train
 case "$STAGE" in
     stage1)
-        MODEL_PATH="/code/Model/Qwen/Qwen2.5-VL-7B-Instruct"
-        DATASET_DIR="/code/Web-CogReasoner/data/Factual"
+        MODEL_PATH="${BASE_MODEL_PATH:-Qwen/Qwen2.5-VL-7B-Instruct}"
+        DATASET_DIR="$PROJECT_ROOT/data/Factual"
         DATASETS="Element_Attribute,Sub_Element_Prediction,Page_Change_Prediction_1,Page_Change_Prediction_2,Next_Page_Prediction,Source_element_Prediction,VisualWebChat"
         CUTOFF_LEN="2048"
         LEARNING_RATE="2e-05"
@@ -96,12 +104,12 @@ case "$STAGE" in
         EVAL_STEPS="500"
         PER_DEVICE_EVAL_BATCH_SIZE="6"
         RUN_NAME="Web-CogReasoner_Factual"
-        OUTPUT_DIR="/code/Model/Checkpoints/Web-CogReasoner/Stage1"
-        DEEPSPEED_CONFIG="/code/Web-CogReasoner/scripts/ds_z2_config.json"
+        OUTPUT_DIR="$PROJECT_ROOT/checkpoints/Web-CogReasoner/Stage1"
+        DEEPSPEED_CONFIG="$PROJECT_ROOT/scripts/ds_z2_config.json"
         ;;
     stage2)
-        MODEL_PATH="/code/Model/Checkpoints/Web-CogReasoner/Stage1-best"
-        DATASET_DIR="/code/Web-CogReasoner/data/Conceptual"
+        MODEL_PATH="$PROJECT_ROOT/checkpoints/Web-CogReasoner/Stage1-best"
+        DATASET_DIR="$PROJECT_ROOT/data/Conceptual"
         DATASETS="Element_Understanding,WebPage_Understanding,Stage_Factual"
         CUTOFF_LEN="4096"
         LEARNING_RATE="1e-05"
@@ -114,12 +122,12 @@ case "$STAGE" in
         EVAL_STEPS="100"
         PER_DEVICE_EVAL_BATCH_SIZE="4"
         RUN_NAME="Web-CogReasoner_Conceptual"
-        OUTPUT_DIR="/code/Model/Checkpoints/Web-CogReasoner/Stage2"
-        DEEPSPEED_CONFIG="/code/Web-CogReasoner/scripts/ds_z2_config.json"
+        OUTPUT_DIR="$PROJECT_ROOT/checkpoints/Web-CogReasoner/Stage2"
+        DEEPSPEED_CONFIG="$PROJECT_ROOT/scripts/ds_z2_config.json"
         ;;
     stage3)
-        MODEL_PATH="/code/Model/Checkpoints/Web-CogReasoner/Stage2-best"
-        DATASET_DIR="/code/Web-CogReasoner/data/Procedural"
+        MODEL_PATH="$PROJECT_ROOT/checkpoints/Web-CogReasoner/Stage2-best"
+        DATASET_DIR="$PROJECT_ROOT/data/Procedural"
         DATASETS="User_Intent_Prediction,Multi_Step_Web_Task,Single_Step_Web_Task,Stage_Factual_Conceptual"
         CUTOFF_LEN="8192"
         LEARNING_RATE="1e-05"
@@ -132,8 +140,8 @@ case "$STAGE" in
         EVAL_STEPS="100"
         PER_DEVICE_EVAL_BATCH_SIZE="1"
         RUN_NAME="Web-CogReasoner_Procedural"
-        OUTPUT_DIR="/code/Model/Checkpoints/Web-CogReasoner/Stage3"
-        DEEPSPEED_CONFIG="/code/Web-CogReasoner/scripts/ds_z2_config.json"
+        OUTPUT_DIR="$PROJECT_ROOT/checkpoints/Web-CogReasoner/Stage3"
+        DEEPSPEED_CONFIG="$PROJECT_ROOT/scripts/ds_z2_config.json"
         ;;
 esac
 

@@ -4,24 +4,35 @@ import json
 import base64
 import asyncio
 import aiofiles
+from pathlib import Path
 from tqdm.asyncio import tqdm_asyncio
 from openai import AsyncOpenAI
 from rouge import Rouge
 
 Test_Model = "Web-CogReasoner"
+PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", Path(__file__).resolve().parents[3])).resolve()
+
+def resolve_asset_path(path):
+    path = Path(path)
+    if path.is_absolute():
+        try:
+            path = path.relative_to("/code/Web-CogReasoner")
+        except ValueError:
+            return str(path)
+    return str(PROJECT_ROOT / path)
 
 # Config
-TEST_JSON_PATH = "/code/Web-CogReasoner/benchmark/VisualWebBench/VisualWebBench_element_ocr.json"
-MAX_SAMPLE = 10
+TEST_JSON_PATH = str(PROJECT_ROOT / "benchmark/VisualWebBench/VisualWebBench_element_ocr.json")
+MAX_SAMPLE = 245
 MAX_CONCURRENT_REQUESTS = 5
 ACCURACY_PRINT_INTERVAL = 10
 MODEL_NAME = "qwen2vl"
-BASE_URL = "http://localhost:8080/v1"
-OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_VisualWebBench/{Test_Model}-VisualWebBench_Element_Ocr.json"
+BASE_URL = os.getenv("MODEL_ENDPOINT", "http://localhost:8080/v1")
+OUTPUT_JSON_PATH = str(PROJECT_ROOT / f"results_VisualWebBench/{Test_Model}-VisualWebBench_Element_Ocr.json")
 
 # OpenAI client
 client = AsyncOpenAI(
-    api_key="EMPTY",
+    api_key=os.getenv("MODEL_API_KEY", "EMPTY"),
     base_url=BASE_URL,
 )
 
@@ -40,7 +51,7 @@ def eval_heading_ocr(preds, golds, **kwargs):
 
 async def process_item(index, item, sem):
     async with sem:
-        image_path = item["images"][0]
+        image_path = resolve_asset_path(item["images"][0])
         ground_truth = item["messages"][1]["content"].strip()
         user_prompt = item["messages"][0]["content"]
         async with aiofiles.open(image_path, "rb") as f:
@@ -67,7 +78,7 @@ async def process_item(index, item, sem):
             )
             pred_text = response.choices[0].message.content.strip()
         except Exception as e:
-            pred_text = f"[ERROR] {str(e)}"
+            raise RuntimeError(f"Model inference failed for sample {index}: {e}") from e
 
         return {
             "image": image_path,

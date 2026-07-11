@@ -5,23 +5,34 @@ import base64
 import re
 import asyncio
 import aiofiles
+from pathlib import Path
 from tqdm.asyncio import tqdm_asyncio
 from openai import AsyncOpenAI
 
 Model_name = "Web-CogReasoner"
+PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", Path(__file__).resolve().parents[3])).resolve()
+
+def resolve_asset_path(path):
+    path = Path(path)
+    if path.is_absolute():
+        try:
+            path = path.relative_to("/code/Web-CogReasoner")
+        except ValueError:
+            return str(path)
+    return str(PROJECT_ROOT / path)
 
 # Configuration
-TEST_JSON_PATH = "/code/Web-CogReasoner/benchmark/Memorizing/Next_Page_Prediction_100.json"  # Path to test dataset
+TEST_JSON_PATH = str(PROJECT_ROOT / "benchmark/Memorizing/Next_Page_Prediction_100.json")  # Path to test dataset
 MODEL_NAME = "qwen2vl"  # Target model
 MAX_SAMPLE = 100  # Number of samples to test
 MAX_CONCURRENT_REQUESTS = 10  # Concurrent request limit
 ACCURACY_PRINT_INTERVAL = 10  # Logging interval
-OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_Web-CogBench/{Model_name}-Next_Page_Prediction_100.json"  # Output path
+OUTPUT_JSON_PATH = str(PROJECT_ROOT / f"results_Web-CogBench/{Model_name}-Next_Page_Prediction_100.json")  # Output path
 
 # Initialize OpenAI client (vLLM API)
 client = AsyncOpenAI(
-    api_key="EMPTY",
-    base_url="http://localhost:8080/v1",
+    api_key=os.getenv("MODEL_API_KEY", "EMPTY"),
+    base_url=os.getenv("MODEL_ENDPOINT", "http://localhost:8080/v1"),
 )
 
 # Extract answer letter (A, B, C, etc.) from text
@@ -34,7 +45,7 @@ def extract_answer_letter(text):
 # Asynchronous processing of a single item
 async def process_item(index, item, sem, stats):
     async with sem:
-        image_path = item["images"][0]
+        image_path = resolve_asset_path(item["images"][0])
         gt_answer = item["messages"][-1]["content"].strip().upper()
         prompt = item["messages"][0]["content"]
 
@@ -67,7 +78,7 @@ async def process_item(index, item, sem, stats):
             )
             pred_text = response.choices[0].message.content.strip()
         except Exception as e:
-            pred_text = f"[ERROR] {str(e)}"
+            raise RuntimeError(f"Model inference failed for sample {index}: {e}") from e
 
         pred_answer = extract_answer_letter(pred_text)
         match = pred_answer == gt_answer

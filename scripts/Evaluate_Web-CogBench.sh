@@ -14,10 +14,12 @@
 #   --gemini-api-key  API key for Gemini evaluator (required for 'evaluation' and 'all' modes).
 #
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+mkdir -p "$PROJECT_ROOT/results_Web-CogBench"
 
 MODE="all"
 GEMINI_API_KEY="${GEMINI_API_KEY:-}"
@@ -58,7 +60,7 @@ run_py() {
 }
 
 run_py_mode() {
-  python "$PROJECT_ROOT/$1" --mode "$MODE" --gemini_api_key "$GEMINI_API_KEY"
+  GEMINI_API_KEY="$GEMINI_API_KEY" python "$PROJECT_ROOT/$1" --mode "$MODE"
 }
 
 echo "=== Web-CogBench Offline (mode=$MODE) ==="

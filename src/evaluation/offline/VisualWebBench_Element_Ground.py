@@ -5,23 +5,34 @@ import base64
 import re
 import asyncio
 import aiofiles
+from pathlib import Path
 from tqdm.asyncio import tqdm_asyncio
 from openai import AsyncOpenAI
 
 Test_Model = "Web-CogReasoner"
+PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", Path(__file__).resolve().parents[3])).resolve()
+
+def resolve_asset_path(path):
+    path = Path(path)
+    if path.is_absolute():
+        try:
+            path = path.relative_to("/code/Web-CogReasoner")
+        except ValueError:
+            return str(path)
+    return str(PROJECT_ROOT / path)
 
 # Config
-TEST_JSON_PATH = "/code/Web-CogReasoner/benchmark/VisualWebBench/VisualWebBench_element_ground.json"
+TEST_JSON_PATH = str(PROJECT_ROOT / "benchmark/VisualWebBench/VisualWebBench_element_ground.json")
 MODEL_NAME = "qwen2vl"
 MAX_SAMPLE = 413
 MAX_CONCURRENT_REQUESTS = 10
 ACCURACY_PRINT_INTERVAL = 10
-OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_VisualWebBench/{Test_Model}-VisualWebBench_Element_Ground.json"
+OUTPUT_JSON_PATH = str(PROJECT_ROOT / f"results_VisualWebBench/{Test_Model}-VisualWebBench_Element_Ground.json")
 
 # OpenAI client
 client = AsyncOpenAI(
-    api_key="EMPTY",
-    base_url="http://localhost:8080/v1",
+    api_key=os.getenv("MODEL_API_KEY", "EMPTY"),
+    base_url=os.getenv("MODEL_ENDPOINT", "http://localhost:8080/v1"),
 )
 
 def extract_answer_letter(text):
@@ -41,7 +52,7 @@ def extract_answer_letter(text):
 
 async def process_item(index, item, sem, stats):
     async with sem:
-        image_path = item["images"][0]
+        image_path = resolve_asset_path(item["images"][0])
         gt_answer = item["messages"][-1]["content"].strip().upper()
         prompt = item["messages"][0]["content"]
 
@@ -72,7 +83,7 @@ async def process_item(index, item, sem, stats):
             )
             pred_text = response.choices[0].message.content.strip()
         except Exception as e:
-            pred_text = f"[ERROR] {str(e)}"
+            raise RuntimeError(f"Model inference failed for sample {index}: {e}") from e
 
         pred_answer = extract_answer_letter(pred_text)
         match = pred_answer == gt_answer

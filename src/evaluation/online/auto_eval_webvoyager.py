@@ -95,6 +95,7 @@ def auto_eval(process_dir, client, api_model, img_num, provider):
     ans_info = it_messages[-1]["content"]
     
     # Check for valid termination actions
+    if not re.search(r"Action:\s*(?:stop|ANSWER)\s*\[", ans_info):
         print('Not find answer for ' + process_dir)
         print()
         return {"success": 0, "reasoning": "Final message does not contain 'Action: stop' or 'Action: ANSWER'."}
@@ -202,11 +203,11 @@ def main():
     # Initialize API Client
     client = None
     if args.provider == 'openai':
-        if args.openai_api_key == 'key': raise ValueError("Please provide an OpenAI API key.")
+        if not args.openai_api_key: raise ValueError("Please provide an OpenAI API key.")
         client = OpenAI(api_key=args.openai_api_key)
         print("Using OpenAI for evaluation.")
     elif args.provider == 'gemini':
-        if args.gemini_api_key == 'key': raise ValueError("Please provide a Gemini API key.")
+        if not args.gemini_api_key: raise ValueError("Please provide a Gemini API key.")
         genai.configure(api_key=args.gemini_api_key)
         client = genai.GenerativeModel(args.api_model)
         print("Using Gemini for evaluation.")

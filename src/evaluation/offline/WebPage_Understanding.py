@@ -9,15 +9,17 @@ from tqdm.asyncio import tqdm_asyncio
 from typing import Dict, Any, List
 from datetime import datetime
 import numpy as np
+from pathlib import Path
 
 # Config
 Test_Model = "Web-CogReasoner"
-VLLM_API_URL = "http://localhost:8080/v1/chat/completions"
+PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", Path(__file__).resolve().parents[3])).resolve()
+VLLM_API_URL = os.getenv("MODEL_ENDPOINT", "http://localhost:8080/v1").rstrip("/") + "/chat/completions"
 GEMINI_MODEL_NAME = 'gemini-2.5-pro'
 MAX_CONCURRENT_REQUESTS = 5
-Test_JSON_PATH = "/code/Web-CogReasoner/benchmark/Understanding/WebPage_Understanding_77.json"
-Inference_output_file = f"/code/Web-CogReasoner/results_Web-CogBench/Raw_Answer-{Test_Model}-WebPage_Understanding_77.jsonl"
-OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_Web-CogBench/{Test_Model}-WebPage_Understanding_77.json"
+Test_JSON_PATH = str(PROJECT_ROOT / "benchmark/Understanding/WebPage_Understanding_77.json")
+Inference_output_file = str(PROJECT_ROOT / f"results_Web-CogBench/Raw_Answer-{Test_Model}-WebPage_Understanding_77.jsonl")
+OUTPUT_JSON_PATH = str(PROJECT_ROOT / f"results_Web-CogBench/{Test_Model}-WebPage_Understanding_77.json")
 
 # Prompts
 def get_gemini_evaluator_prompt(ground_truth: str, model_answer: str) -> str:
@@ -61,6 +63,15 @@ Your response MUST be a single, valid JSON object, adhering to the following str
 
 def encode_image_to_base64(image_path: str) -> str:
     """Encode image to base64."""
+    path = Path(image_path)
+    if path.is_absolute():
+        try:
+            path = PROJECT_ROOT / path.relative_to("/code/Web-CogReasoner")
+        except ValueError:
+            pass
+    else:
+        path = PROJECT_ROOT / path
+    image_path = str(path)
     try:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')

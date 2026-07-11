@@ -5,23 +5,34 @@ import base64
 import re
 import asyncio
 import aiofiles
+from pathlib import Path
 from tqdm.asyncio import tqdm_asyncio
 from openai import AsyncOpenAI
 
 Model_name = "Web-CogReasoner"
+PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", Path(__file__).resolve().parents[3])).resolve()
+
+def resolve_asset_path(path):
+    path = Path(path)
+    if path.is_absolute():
+        try:
+            path = path.relative_to("/code/Web-CogReasoner")
+        except ValueError:
+            return str(path)
+    return str(PROJECT_ROOT / path)
 
 # Config
 MODEL_NAME = "qwen2vl"
 MAX_SAMPLE = 60
 MAX_CONCURRENT_REQUESTS = 5
 ACCURACY_PRINT_INTERVAL = 10
-TEST_JSON_PATH = "/code/Web-CogReasoner/benchmark/Exploring/Popup_Close.json"
-OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_Web-CogBench/{Model_name}-Popup_close.json"
+TEST_JSON_PATH = str(PROJECT_ROOT / "benchmark/Exploring/Popup_Close.json")
+OUTPUT_JSON_PATH = str(PROJECT_ROOT / f"results_Web-CogBench/{Model_name}-Popup_close.json")
 
 # OpenAI client
 client = AsyncOpenAI(
-    api_key="EMPTY",
-    base_url="http://localhost:8080/v1",
+    api_key=os.getenv("MODEL_API_KEY", "EMPTY"),
+    base_url=os.getenv("MODEL_ENDPOINT", "http://localhost:8080/v1"),
 )
 
 def extract_action_from_output(text: str):
@@ -37,7 +48,7 @@ def extract_action_from_output(text: str):
 
 async def process_item(index, item, sem, stats):
     async with sem:
-        image_paths = item["images"]
+        image_paths = [resolve_asset_path(path) for path in item["images"]]
         prompt = item["messages"][0]["content"]
         prompt = prompt[prompt.find("OBSERVATION:"):]
         gt_json_str = item["messages"][-1]["content"]
@@ -94,7 +105,7 @@ async def process_item(index, item, sem, stats):
             )
             pred_text = response.choices[0].message.content.strip()
         except Exception as e:
-            pred_text = f"[ERROR] {str(e)}"
+            raise RuntimeError(f"Model inference failed for sample {index}: {e}") from e
 
         pred_answer = extract_action_from_output(pred_text)
         

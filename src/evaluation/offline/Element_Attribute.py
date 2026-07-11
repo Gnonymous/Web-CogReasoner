@@ -4,24 +4,35 @@ import base64
 import re
 import asyncio
 import aiofiles
+from pathlib import Path
 from tqdm.asyncio import tqdm_asyncio
 from openai import AsyncOpenAI
 from rouge import Rouge
 
 Model_name = "Web-CogReasoner"
+PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", Path(__file__).resolve().parents[3])).resolve()
+
+def resolve_asset_path(path):
+    path = Path(path)
+    if path.is_absolute():
+        try:
+            path = path.relative_to("/code/Web-CogReasoner")
+        except ValueError:
+            return str(path)
+    return str(PROJECT_ROOT / path)
 
 # Config
-TEST_JSON_PATH = "/code/Web-CogReasoner/benchmark/Memorizing/Element_Attribute_249.json"
+TEST_JSON_PATH = str(PROJECT_ROOT / "benchmark/Memorizing/Element_Attribute_249.json")
 MODEL_NAME = "qwen2vl"
 MAX_SAMPLE = 249
 MAX_CONCURRENT_REQUESTS = 5
 ACCURACY_PRINT_INTERVAL = 10
-OUTPUT_JSON_PATH = f"/code/Web-CogReasoner/results_Web-CogBench/{Model_name}-Element-Attribute.json"
+OUTPUT_JSON_PATH = str(PROJECT_ROOT / f"results_Web-CogBench/{Model_name}-Element-Attribute.json")
 
 # OpenAI client and ROUGE
 client = AsyncOpenAI(
-    api_key="EMPTY",
-    base_url="http://localhost:8080/v1",
+    api_key=os.getenv("MODEL_API_KEY", "EMPTY"),
+    base_url=os.getenv("MODEL_ENDPOINT", "http://localhost:8080/v1"),
 )
 rouge = Rouge(metrics=['rouge-1'])
 
@@ -38,7 +49,7 @@ def parse_model_output(text):
 
 async def process_item(index, item, sem, stats):
     async with sem:
-        image_path = item["images"][0]
+        image_path = resolve_asset_path(item["images"][0])
         gt_response = item["messages"][-1]["content"]
 
         async with aiofiles.open(image_path, "rb") as f:
@@ -72,7 +83,7 @@ async def process_item(index, item, sem, stats):
             )
             pred_text = response.choices[0].message.content.strip()
         except Exception as e:
-            pred_text = f"[ERROR] {str(e)}"
+            raise RuntimeError(f"Model inference failed for sample {index}: {e}") from e
 
         pred_role, pred_name = parse_model_output(pred_text)
         gt_role, gt_name = parse_model_output(gt_response)

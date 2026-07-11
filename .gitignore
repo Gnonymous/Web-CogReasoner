@@ -30,7 +30,8 @@ wheels/
 *.egg
 
 # Virtual Environments
-.env
+.env*
+!.env.example
 .venv
 env/
 venv/
@@ -55,16 +56,15 @@ data/**/*.jpeg
 data/train/
 data/test/
 data/images/
-!data/README.md
 
 # Benchmark Data (large files)
 benchmark/**/*.json
 benchmark/**/*.png
 benchmark/**/*.jpg
-!benchmark/**/README.md
 
 # Model Checkpoints
 checkpoints/
+models/
 *.ckpt
 *.pt
 *.pth
@@ -73,10 +73,26 @@ checkpoints/
 
 # Results and Logs
 results/
+results_Web-CogBench/
+results_VisualWebBench/
 logs/
 *.log
 wandb/
 runs/
+privacy-audit-report.json
+
+# Secrets and local credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+
+# Hugging Face local download metadata
+data/.cache/
+benchmark/.cache/
+models/.cache/
 
 # Temporary Files
 temp/
@@ -87,4 +103,3 @@ tmp/
 chromedriver*
 *.deb
 downloads/
-

@@ -111,26 +111,9 @@ def setup_logger(folder_path):
 
 def force_cleanup_processes():
     """
-    Aggressive cleanup for a fresh WebDriver session.
+    Avoid terminating unrelated browser sessions on shared hosts.
     """
-    print("--- Starting comprehensive cleanup... ---")
-
-    print("Killing browser and driver processes...")
-    os.system("pkill -9 -f 'chrome' || true")
-    os.system("pkill -9 -f 'google-chrome' || true")
-    os.system("pkill -9 -f 'chromedriver' || true")
-
-    print("Cleaning up temporary files and directories...")
-    os.system("rm -rf /tmp/.com.google.Chrome.* || true")
-    os.system("rm -rf /tmp/.org.chromium.Chromium.* || true")
-    os.system("rm -rf /tmp/selenium* || true")
-    os.system("rm -rf /tmp/scoped_dir* || true")
-
-    print("Cleaning up IPC resources (shared memory and semaphores)...")
-    os.system("ipcs -m | grep `whoami` | awk '{print $2}' | xargs -I {} ipcrm -m {} || true")
-    os.system("ipcs -s | grep `whoami` | awk '{print $2}' | xargs -I {} ipcrm -s {} || true")
-
-    print("--- Comprehensive cleanup complete. ---")
+    print("Skipping global Chrome/IPC cleanup; WebDriver sessions are closed individually.")
 
 def driver_config(args):
 
