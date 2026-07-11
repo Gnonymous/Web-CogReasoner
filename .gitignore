@@ -1,1 +1,105 @@
+data/
+benchmark/
+release/
+opensource.md   
+
+# OS Files
 .DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.env*
+!.env.example
+.venv
+env/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Data Files (large files should be downloaded separately)
+data/**/*.json
+data/**/*.jsonl
+data/**/*.parquet
+data/**/*.png
+data/**/*.jpg
+data/**/*.jpeg
+data/train/
+data/test/
+data/images/
+
+# Benchmark Data (large files)
+benchmark/**/*.json
+benchmark/**/*.png
+benchmark/**/*.jpg
+
+# Model Checkpoints
+checkpoints/
+models/
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# Results and Logs
+results/
+results_Web-CogBench/
+results_VisualWebBench/
+logs/
+*.log
+wandb/
+runs/
+privacy-audit-report.json
+
+# Secrets and local credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+
+# Hugging Face local download metadata
+data/.cache/
+benchmark/.cache/
+models/.cache/
+
+# Temporary Files
+temp/
+tmp/
+*.tmp
+
+# Selenium/Chrome
+chromedriver*
+*.deb
+downloads/

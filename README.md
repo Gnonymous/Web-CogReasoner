@@ -5,9 +5,9 @@
 
 <p align="center">
     &nbsp;&nbsp; 📑 <a href="https://arxiv.org/abs/2508.01858">ICLR 2026</a> &nbsp;&nbsp;
-    | &nbsp;&nbsp; 🤗 <a href="https://huggingface.co/Gnonymous/Web-CogReasoner">Models(Coming soon)</a> &nbsp;&nbsp;
-    | &nbsp;&nbsp; 🤗 <a href="https://huggingface.co/datasets/Gnonymous/Web-CogDataset">Dataset(Coming soon)</a> &nbsp;&nbsp;
-    | &nbsp;&nbsp; 🤗 <a href="https://github.com/Gnonymous/Web-CogReasoner">Bench(Coming soon)</a> &nbsp;&nbsp;
+    | &nbsp;&nbsp; 🤗 <a href="https://huggingface.co/Gnonymous/Web-CogReasoner">Model</a> &nbsp;&nbsp;
+    | &nbsp;&nbsp; 🤗 <a href="https://huggingface.co/datasets/Gnonymous/Web-CogDataset">Dataset</a> &nbsp;&nbsp;
+    | &nbsp;&nbsp; 🤗 <a href="https://huggingface.co/datasets/Gnonymous/Web-CogBench">Benchmark</a> &nbsp;&nbsp;
 </p>
 <p align="center">
     &nbsp;&nbsp; 🌐 <a href="https://Gnonymous.github.io/Web-CogReasoner">Homepage</a> &nbsp;&nbsp;
@@ -49,10 +49,10 @@
 > **Last Updated**: 2025-08-05 13:08 UTC+8
 
 - [x] ~~**Paper**: Release the full research paper on [arXiv](https://arxiv.org/abs/2508.01858).~~
-- [ ] **Code**: Open-source the complete code for training and inference. 
-- [ ] **Model**: Publish the official Web-CogReasoner model weights.  
-- [ ] **Dataset**: Make the Web-CogDataset publicly available for community research.  
-- [ ] **Benchmark**: Launch a public online evaluation server for Web-CogBench to ensure fair comparisons.
+- [x] ~~**Code**: Open-source the complete code for training and inference.~~
+- [x] ~~**Model**: Publish the official Web-CogReasoner model weights.~~
+- [x] ~~**Dataset**: Make the Web-CogDataset publicly available for community research.~~
+- [x] ~~**Benchmark**: Publish Web-CogBench.~~
 
 ## Performance
 
@@ -87,7 +87,36 @@ This section evaluates the models' ability to perform complex, multi-step tasks 
 | **Web-CogReasoner (Ours)** | **30.2%** | **17.0%** | **10.1%** |
 
 ## Quickstart
-*Coming soon*
+
+Prepare your own Python environment, download the public assets from the Hugging Face links above into `data/` and `benchmark/`, and serve the model through an OpenAI-compatible endpoint (the scripts default to `http://localhost:8080/v1`). Then run the existing entry points:
+
+```bash
+# Training
+./scripts/train.sh stage1
+./scripts/train.sh stage2
+./scripts/train.sh stage3
+
+# Offline evaluation
+./scripts/Evaluate_Web-CogBench.sh --mode inference
+./scripts/Evaluate_VisualWebBench.sh
+
+# Online exploration and evaluation
+./scripts/run.sh
+GEMINI_API_KEY=... ./scripts/Evaluate_WebVoyager.sh
+```
+
+Use `MODEL_ENDPOINT` to override the local inference endpoint and `GEMINI_API_KEY` for Gemini-based evaluation. Training stages keep the paper's datasets, hyperparameters, and checkpoint chain; paths can be overridden with the options shown by `./scripts/train.sh --help`.
+
+## Tested Environment
+
+The following environment was detected on the current machine:
+
+- OS: Ubuntu 20.04.5 LTS (Focal Fossa)
+- Kernel: Linux 3.10.0-1160.el7.x86_64
+- Python: 3.8.13
+- pip: 25.0.1
+- Google Chrome: 137.0.7151.55
+- ChromeDriver: 137.0.7151.55
 
 ## Citation
 
@@ -99,4 +128,3 @@ journal={arXiv preprint arXiv:2508.01858},
 year={2025}
 }
 ```
-
